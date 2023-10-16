@@ -1,0 +1,1004 @@
+/* Fanis Klitsas
+AM: 2022201600074
+dit16074@uop.gr
+
+Kostas Omorfopoulos
+AM: 2022201600127
+dit16127@uop.gr
+*/
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+#include<time.h>
+typedef struct {
+	char name[20];
+	char symbol;
+	int pltype;
+	int obstacles;
+	int boardpos;
+	int posx;
+	int posy;
+}playerstruct;
+cpu_move();
+int draw_board(int **board, playerstruct pl[4], int dm, char hhead[26]);
+int validate_input(char input[6], int bdim, int *bl1x, int *bl1y, int *bl2x, int *bl2y, char msg[100]);
+int check_block_dist(int **board, playerstruct *curplayer, int dm, int *dist);
+int check_player_move(int curplayer, int plnum, playerstruct pl[4], int **board, int dm, int *blpl);
+int is_empty(int **board, int px, int py);
+int is_adjacent(int px, int py, int plrx, int plry);
+int moveplayer(int **board, playerstruct *curplayer, int px, int py);
+int putblock(int **board, playerstruct *curplayer, int bltype, int bl1x, int bl1y, int bl2x, int bl2y);
+int getnextblock(playerstruct *curplayer, int movetype, int dm, int *nextx, int *nexty);
+int getpointnextblock(int bpostype, int movetype, int dm, int bposx, int bposy, int *nextx, int *nexty);
+int getnextplayer(int curplayer, int plnum);
+int check_eog(playerstruct curplayer, int board_dim);
+char* my_cpstr(char input[6], int from, int to);
+int my_str2int(char input[6]);
+
+/* CODE */
+
+int main(void)
+{
+
+int i,j,k,Dim,PL,ans2,ans3,randoma,randomb; 
+int tmpdim, ret, retl;
+int currentplayer, plblockindex;
+int eog;
+int input_val;
+int play_flag;
+int pl_block, pl_dist;
+int cpu_move_type;
+int cpu_move_dir;
+int block_type;
+int **array;
+char *pla,*plb,ans1; 
+playerstruct player[4];
+char playersymbols[4]={'#','@','*','&'};
+char horheading[26]="abcdefghijklmnopqrstuvwxyz";
+/*char vertheading[5];*/
+char plinput[6];
+char error_message[100];
+int p1x=-1, p1y=-1, p2x=-1, p2y=-1;
+int cpu_p1x=-1, cpu_p1y=-1;
+int bl_p1x=-1, bl_p1y=-1, bl_p2x=-1, bl_p2y=-1;
+
+ans1=' ';
+printf("Welcome to Block Me!\n");
+printf("give dimensions you want to play:\n");
+scanf("%d", &Dim);
+while((Dim>27)||(Dim<5))
+{
+	printf("give dimensions you want to play:\n");
+	scanf("%d", &Dim);
+}
+array = (int**) malloc(Dim * sizeof(int*));
+for (i=0; i<Dim; i++) {
+	array[i] = (int*) malloc(Dim * sizeof(int));
+}
+do
+{
+      	/*2.CHECKING TO BE THE RIGHT AMOUNT OF PLAYERS */
+	printf("how many players is going to play?\n");
+	scanf("%d", &PL);/*PLAYERS*/ 
+}
+while((PL!=2) &&(PL!=4));
+
+/*.obstacles or not*/
+printf("empty board (1) or board with obstacles (2)? ");
+scanf("%d",&ans3);
+
+/* Fill in players data */
+for (i=0; i<PL; i++) 
+{
+	printf("Player %d\n", i+1);
+	printf("Person (1) or Computer (2)?: ");
+
+	scanf("%d",&ans2);
+	player[i].pltype = ans2;
+	if (ans2==1) 
+	{
+		printf("Give the name: ");
+		scanf("%s", &player[i].name);
+	}
+	else {
+		strncpy(player[i].name, "CPU", 20);		
+		/*player[i].name = "CPU";*/
+	}
+	player[i].obstacles = 5;
+	player[i].symbol = playersymbols[i];
+	player[i].boardpos = i+1;
+}
+
+/*Initialize  board  */ 
+if(ans3==1) /*Initialize empty board  */ 
+{
+	for (i=0; i<Dim; i++)
+	{
+		for (j=0; j<Dim; j++)
+		{
+			array[i][j]=0;
+		}
+	}
+	tmpdim=Dim/2;
+	tmpdim++;
+	array[tmpdim-1][Dim-1]=1;
+	array[tmpdim-1][0]=2;
+	if (PL==4) 
+	{
+		array[0][tmpdim-1]=3;
+		array[Dim-1][tmpdim-1]=4;
+	}
+}
+else if(ans3==2) /*Initialize board with obstacles*/
+{
+	for (i=0; i<Dim; i++)
+	{
+		for (j=0; j<Dim; j++)
+		{
+			array[i][j]=0;
+		}
+	}
+	tmpdim=Dim/2;
+	tmpdim++;
+	array[tmpdim-1][Dim-1]=1;
+	array[tmpdim-1][0]=2;
+	if (PL==4) 
+	{
+		array[0][tmpdim-1]=3;
+		array[Dim-1][tmpdim-1]=4;
+	}
+	for (i=0; i<2; i++)
+	{
+		for (j=0; j<2; j++)/*gia na mpainoun empodia katheta*/
+		{
+			randoma= 1+ rand()%Dim-1;	
+			randomb= 1+ rand()%Dim-1;	
+		
+			if((array[randoma][randomb]!=1)&&(array[randoma][randomb]!=2)                            &&(array[randoma][randomb]!=3)&&(array[randoma][randomb]!=4))
+			{
+				if(randomb+1<Dim)
+				{
+					array[randoma][randomb]=9;
+					array[randoma][randomb+1]=9;
+				}
+				else if(randomb-1>Dim)
+				{
+					array[randoma][randomb]=9;
+					array[randoma][randomb-1]=9;
+				}
+			}
+		}
+		for (k=0; k<2; k++)/* gia na mpainoun empodia kai orizontia*/
+		{
+			randoma= 1+ rand()%Dim-1;	
+			randomb= 1+ rand()%Dim-1;	
+		
+			if((array[randoma][randomb]!=1)&&(array[randoma][randomb]!=2)                            &&(array[randoma][randomb]!=3)&&(array[randoma][randomb]!=4))
+			{
+				if(randoma+1<Dim)
+				{
+					array[randoma][randomb]=9;
+					array[randoma+1][randomb]=9;
+				}
+				else if(randoma-1>Dim)
+				{
+					array[randoma][randomb]=9;
+					array[randoma-1][randomb]=9;
+				}
+			}
+		}
+	}		
+}
+player[0].posx=tmpdim-1;
+player[0].posy=Dim-1;
+player[1].posx=tmpdim-1;
+player[1].posy=0;
+player[2].posx=0;
+player[2].posy=tmpdim-1;
+player[3].posx=Dim-1;
+player[3].posy=tmpdim-1;
+
+/* Display Players data */
+
+/*for (i=0; i<PL; i++) 
+{
+	printf("Player %d\n", i+1);
+	printf("Type/Name/obstacles/symbol/initialposition/curposx/cusposy: ");
+	printf("%d %s %d %c %d %d %d\n", player[i].pltype, player[i].name, player[i].obstacles, player[i].symbol, player[i].boardpos, player[i].posx, player[i].posy);
+} */
+printf("\n");
+printf("\n");
+printf("    (WARNING!! DO NOT USE CAPS LOCK WHEN YOU GIVE MOVE COORDINATES!!!) ");
+printf("\n");
+printf("\n");
+printf("    START!");
+printf("\n");
+currentplayer = 0;
+eog = 0;
+gets(plinput);
+input_val=100;
+
+/* WHILE */
+while ((eog==0) && (input_val!=99))
+{
+	/*Display board */
+	ret=draw_board(array, player, Dim, horheading);
+
+	printf("Player %s (%c) you have %d obstacles left.\n", player[currentplayer].name, 
+	player[currentplayer].symbol, player[currentplayer].obstacles);
+	/*printf("PL-position-%d-%d\n", player[currentplayer].posx, player[currentplayer].posy);*/
+	pl_block=check_block_dist(array, &player[currentplayer], Dim, &pl_dist);
+	/*printf("block-dist-%d-%d\n", pl_block, pl_dist);*/
+	printf("Make your move: ");
+
+	if  ((player[currentplayer].pltype) == 1) /* PLAYER MOVE */
+	{
+		
+		gets(plinput);
+		
+	
+		/*Validate input function*/
+		input_val = validate_input(plinput, Dim, &p1x, &p1y, &p2x, &p2y, error_message);
+		/*printf("%d\n", input_val);*/
+		if (input_val ==0) 
+		{
+			puts(error_message);
+			play_flag=0;
+		}
+		if (input_val ==1) 
+		{
+			/*printf("%d %d\n", p1x, p1y);*/
+			if (is_empty(array, p1x, p1y)==0)
+			{
+				play_flag=0;
+				puts("Invalid input: Non-empty block");
+			}
+			else
+			{
+				if (is_adjacent(p1x, p1y, player[currentplayer].posx, 
+				player[currentplayer].posy)==0)
+				{
+					play_flag=0;
+					puts("Invalid input: Non-adjacent block");	
+				}
+				else
+				{
+					play_flag=1;
+				}
+			}	
+		}
+		if (input_val ==2) 
+		{
+			/*printf("%d %d\n", p1x, p1y);
+			printf("%d %d\n", p2x, p2y);*/
+			if (player[currentplayer].obstacles==0)	
+			{
+				play_flag=0;
+				puts("No more obstacles left");
+			}
+			else
+			{
+				if ((is_empty(array, p1x, p1y)==0) || (is_empty(array, p2x, p2y)==0))
+				{
+					play_flag=0;
+					puts("Invalid input: Non-empty block");
+				}
+				else
+				{
+					if (is_adjacent(p1x, p1y, p2x, p2y)==0)
+					{
+						play_flag=0;
+						puts("Invalid input: Non-adjacent blocks of obstacles");	
+					}
+					else
+					{
+						play_flag=1;
+					}
+				}
+			}
+		}
+	
+		if (play_flag==1)
+		{
+			/*Move implemantation*/
+			if (input_val ==1) 
+			{
+				ret=moveplayer(array, &player[currentplayer], p1x, p1y);
+			}
+			if (input_val ==2) 
+			{
+				block_type=1; /*block for current player */
+				ret=putblock(array, &player[currentplayer], block_type, p1x, p1y, p2x, p2y);
+			}
+			
+			if (check_eog(player[currentplayer], Dim)==1)
+			{
+			ret=draw_board(array, player, Dim, horheading);
+			printf("GAME OVER\n");
+			printf("Player %s (%c) has won.\n", player[currentplayer].name, player[currentplayer].symbol);
+			eog=1;
+			}
+			else
+			{
+			/*Go to next player*/
+			eog=0;
+			currentplayer=getnextplayer(currentplayer, PL);	
+			}	
+		}
+			
+
+
+	} /* END OF PLAYER MOVE */
+
+	else if ((player[currentplayer].pltype) == 2) /* CPU MOVE */
+	{
+	
+		/*printf("ta pame");
+		move=cpu_move(array,player[currentplayer].posx, player[currentplayer].posy);*/
+		cpu_move_type=check_player_move(currentplayer, PL, &player, array, Dim, &plblockindex);
+		/*1: Move 2:Block*/
+		/*printf("movtype-%d-%d\n", cpu_move_type, plblockindex);*/
+		if (cpu_move_type==1)
+		{
+			cpu_move_dir=1;
+			ret=getnextblock(&player[currentplayer], cpu_move_dir, Dim, &cpu_p1x, &cpu_p1y);
+			
+			if (is_empty(array, cpu_p1x, cpu_p1y)==1)
+			{
+				ret=moveplayer(array, &player[currentplayer], cpu_p1x, cpu_p1y);
+			}
+			else
+			{
+				cpu_move_dir=3;
+				retl=getnextblock(&player[currentplayer], cpu_move_dir, Dim, &cpu_p1x, &cpu_p1y);
+				if (retl==1)
+				{				
+					if (is_empty(array, cpu_p1x, cpu_p1y)==1)
+					{
+						ret=moveplayer(array, &player[currentplayer], cpu_p1x, cpu_p1y);
+					}
+					else
+					{
+						retl=0;
+					}
+				}	
+				if (retl==0)
+				{
+					cpu_move_dir=4;
+					ret=getnextblock(&player[currentplayer], cpu_move_dir, Dim, &cpu_p1x, &cpu_p1y);
+					if (is_empty(array, cpu_p1x, cpu_p1y)==1)
+					{
+					ret=moveplayer(array, &player[currentplayer], cpu_p1x, cpu_p1y);
+					}
+				}
+			}
+		}
+		else /*cpu_move_type=2 (block) */
+		{
+			cpu_move_dir=1;
+			ret=getnextblock(&player[plblockindex], cpu_move_dir, Dim, &bl_p1x, &bl_p1y);
+			cpu_move_dir=3;
+			ret=getpointnextblock(player[plblockindex].boardpos, cpu_move_dir, Dim, bl_p1x, bl_p1y, &bl_p2x, &bl_p2y);
+			block_type=2; /*block for other player */
+			ret=putblock(array, &player[plblockindex], block_type, bl_p1x, bl_p1y, bl_p2x, bl_p2y);
+			player[currentplayer].obstacles--;	
+		}
+		if (check_eog(player[currentplayer], Dim)==1)
+			{
+			ret=draw_board(array, player, Dim, horheading);
+			printf("GAME OVER\n");
+			printf("Player %s (%c) has won.\n", player[currentplayer].name, player[currentplayer].symbol);
+			eog=1;
+			}
+			else
+			{
+			/*Go to next player*/
+			eog=0;
+			currentplayer=getnextplayer(currentplayer, PL);	
+			}
+	
+	} /* END OF CPU MOVE */
+
+} /* End of WHILE */
+
+return 0;
+}
+
+/*FUNTCTIONS */
+
+
+/* validate function code */
+int validate_input(char input[6], int bdim, int *bl1x, int *bl1y, int *bl2x, int *bl2y, char msg[100])
+{
+	int i, x, len, dig;
+	int alphacount;
+	int tmp;
+	int alphan[2];
+	char digc;
+	char dig2c;
+	if (strcmp(input,"exit")==0) {
+		return 99;
+	}
+	else if (strcmp(input,"help")==0) {
+		return 88;
+	}
+	else {
+		len = strlen(input);
+		alphacount=0;
+		/*printf("%d\n", len);*/
+		if ((len==2) || (len==3))
+		{
+			digc=input[0];
+			/*printf("%c",digc);*/
+			*bl1x=digc - 'a';	
+			/*printf("%d",*bl1x);*/
+			if (len==2)
+			{			
+				digc=input[1];
+				*bl1y=digc - '1';
+				/*printf("%d",*bl1y);*/
+			}
+			else
+			{
+				digc=input[1];
+				dig2c=input[2];
+				*bl1y=((digc-'0')*10)+(dig2c-'0')-1;
+			}
+			*bl2x=-1;
+			*bl2y=-1;
+			if ((*bl1x>bdim-1) || (*bl1y>bdim-1))
+			{
+				strcpy(msg, "Invalid input: Out of Border");
+				return 0;
+			}
+			else
+			{
+				return 1;
+			}
+		}
+		else if ((len==4) || (len==6))
+		{
+			/*printf("%d\n", len);*/
+			/*alpha_count=1;*/
+			/*printf("%d\n",alphacount);*/
+			for (i=0; i<len; i++)
+			{				
+				digc=input[i];
+				/*printf("%c\n",digc);*/
+				if ((digc>='a') && (digc<='z'))
+				{
+					alphacount++;
+					if (alphacount>2)
+					{
+						strcpy(msg, "Invalid input");
+						return 0;
+					}
+					else
+					{
+						alphan[alphacount-1]=i;
+						/*printf("%d\n",alphan[alphacount-1]);*/
+					}
+				}
+			}
+			if ((alphan[1]-alphan[0]<2) || (alphan[1]-alphan[0]>3))
+			{
+				strcpy(msg, "Invalid input");
+				return 0;
+			}
+			else
+			{
+				*bl1x=input[alphan[0]] - 'a';
+				*bl2x=input[alphan[1]] - 'a';
+				/*printf("numpos-%d-%d", alphan[0], alphan[1]);
+				printf("numstr-%s-%s\n", my_cpstr(input, alphan[0]+2, alphan[1]), my_cpstr(input, alphan[1]+2, len));*/
+				*bl1y=my_str2int(my_cpstr(input, alphan[0]+2, alphan[1]));		
+				*bl2y=my_str2int(my_cpstr(input, alphan[1]+2, len));	
+				return 2;
+			}
+		}
+		else
+		{
+			strcpy(msg, "Invalid input");
+			return 0;
+		}
+	}
+}
+
+int is_empty(int **board, int px, int py)
+{
+	if (board[px][py]==0)
+	{
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+int cpu_move(int **board, int px, int py)
+{
+	return 0;	
+}
+
+int is_adjacent(int px, int py, int plrx, int plry)
+{
+	/*printf("px-py-%d\n", abs(px-plrx));
+	printf("plrx-plry-%d\n", abs(py-plry));*/
+	
+	if ((px==plrx) && (abs(py-plry)==1))
+	{
+		return 1;
+	}
+	else if ((py==plry) && (abs(px-plrx)==1))
+	{
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+int moveplayer(int **board, playerstruct *curplayer, int px, int py)
+{
+	board[px][py]=curplayer->boardpos;
+	board[curplayer->posx][curplayer->posy]=0;
+	curplayer->posx=px;
+	curplayer->posy=py;
+	return 0;
+}
+
+int putblock(int **board, playerstruct *curplayer, int bltype, int bl1x, int bl1y, int bl2x, int bl2y)
+{
+	board[bl1x][bl1y]=9;
+	board[bl2x][bl2y]=9;
+	if ((bltype==1) || (bltype==2))
+	{
+		curplayer->obstacles--;
+	}
+	return 0;
+}
+
+int check_block_dist(int **board, playerstruct *curplayer, int dm, int *dist)
+{
+	int ret_dist;
+	int ret;
+	int i;
+	if (curplayer->boardpos==1)
+	{
+		ret_dist=curplayer->posy;
+		i=0;		
+		while ((i<ret_dist) && (board[curplayer->posx][(curplayer->posy)-i-1]==0))
+		{
+			i++;
+		}
+	}
+	if (curplayer->boardpos==2)
+	{
+		ret_dist=dm-(curplayer->posy)-1;
+		i=0;	
+		while ((i<ret_dist) && (board[curplayer->posx][(curplayer->posy)+i+1]==0))
+		{
+			i++;
+		}	
+	}
+	if (curplayer->boardpos==4)
+	{
+		ret_dist=curplayer->posx;
+		i=0;
+		while ((i<ret_dist) && (board[(curplayer->posx)-i-1][curplayer->posy]==0))
+		{
+			i++;
+		}
+	}
+	if (curplayer->boardpos==3)
+	{
+		ret_dist=dm-(curplayer->posx)-1;
+		i=0;
+		while ((i<ret_dist) && (board[(curplayer->posx)+i+1][curplayer->posy]==0))
+		{
+			i++;
+		}
+	}
+	*dist=ret_dist;
+	if (i==ret_dist)
+	{
+		return 0; /*no block exists*/
+	}
+		return 1; /*block exists*/
+	return ret_dist;
+}
+
+int check_player_move(int curplayer, int plnum, playerstruct pl[4], int **board, int dm, int *blpl)
+{
+	int i;
+	int othplayer;
+	int curpl_block, curpl_dist, othpl_block, othpl_dist, tmp_block, tmp_dist;
+	if (pl[curplayer].obstacles>0)	
+	{
+	curpl_block=check_block_dist(board, &pl[curplayer], dm, &curpl_dist);
+	tmp_block=curpl_block;
+	tmp_dist=curpl_dist;
+	/*printf("curplayer-%d-%d", curpl_block, curpl_dist);*/
+	*blpl=curplayer;
+	for (i=0;i<plnum;i++)
+	{
+		if (i!=curplayer)
+		{
+			othpl_block=check_block_dist(board, &pl[i], dm, &othpl_dist);
+			if ((othpl_dist<tmp_dist) && (othpl_block==0))
+			{
+				*blpl=i;
+				tmp_dist=othpl_dist;
+				tmp_block=othpl_block;		
+			}
+		}
+	}
+	if (*blpl==curplayer)
+	{
+		return 1;
+	}
+	else
+	{
+		return 2;
+	}
+	}/*obstacles*/
+	else
+	{
+		return 1;
+	}
+}
+
+
+int getnextblock(playerstruct *curplayer, int movetype, int dm, int *nextx, int *nexty)
+{
+	/*movetype: 1:forward, 2:back, 3:left, 4:right */
+	if (curplayer->boardpos==1)
+	{
+		if (movetype==1)
+		{
+			*nextx=curplayer->posx;
+			*nexty=curplayer->posy-1;
+		}
+		if (movetype==2)
+		{
+			*nextx=curplayer->posx;
+			*nexty=curplayer->posy+1;
+		}
+		if (movetype==3)
+		{
+			*nextx=curplayer->posx-1;
+			*nexty=curplayer->posy;
+		}
+		if (movetype==4)
+		{
+			*nextx=curplayer->posx+1;
+			*nexty=curplayer->posy;
+		}
+	}
+	if (curplayer->boardpos==2)
+	{
+		if (movetype==1)
+		{
+			*nextx=curplayer->posx;
+			*nexty=curplayer->posy+1;
+		}
+		if (movetype==2)
+		{
+			*nextx=curplayer->posx;
+			*nexty=curplayer->posy-1;
+		}
+		if (movetype==3)
+		{
+			*nextx=curplayer->posx+1;
+			*nexty=curplayer->posy;
+		}
+		if (movetype==4)
+		{
+			*nextx=curplayer->posx-1;
+			*nexty=curplayer->posy;
+		}
+	}
+	if (curplayer->boardpos==3)
+	{
+		if (movetype==1)
+		{
+			*nextx=curplayer->posx+1;
+			*nexty=curplayer->posy;
+		}
+		if (movetype==2)
+		{
+			*nextx=curplayer->posx-1;
+			*nexty=curplayer->posy;
+		}
+		if (movetype==3)
+		{
+			*nextx=curplayer->posx;
+			*nexty=curplayer->posy-1;
+		}
+		if (movetype==4)
+		{
+			*nextx=curplayer->posx;
+			*nexty=curplayer->posy+1;
+		}
+	}
+	if (curplayer->boardpos==4)
+	{
+		if (movetype==1)
+		{
+			*nextx=curplayer->posx-1;
+			*nexty=curplayer->posy;
+		}
+		if (movetype==2)
+		{
+			*nextx=curplayer->posx+1;
+			*nexty=curplayer->posy;
+		}
+		if (movetype==3)
+		{
+			*nextx=curplayer->posx;
+			*nexty=curplayer->posy+1;
+		}
+		if (movetype==4)
+		{
+			*nextx=curplayer->posx;
+			*nexty=curplayer->posy-1;
+		}
+	}
+	if ((*nextx>=dm) || (*nexty>=dm))
+		{return 0;}
+	else
+		{return 1;}
+}
+
+
+int getpointnextblock(int bpostype, int movetype, int dm, int bposx, int bposy, int *nextx, int *nexty)
+{
+	/*movetype: 1:forward, 2:back, 3:left, 4:right */
+	if (bpostype==1)
+	{
+		if (movetype==1)
+		{
+			*nextx=bposx;
+			*nexty=bposy-1;
+		}
+		if (movetype==2)
+		{
+			*nextx=bposx;
+			*nexty=bposy+1;
+		}
+		if (movetype==3)
+		{
+			*nextx=bposx-1;
+			*nexty=bposy;
+		}
+		if (movetype==4)
+		{
+			*nextx=bposx+1;
+			*nexty=bposy;
+		}
+	}
+	if (bpostype==2)
+	{
+		if (movetype==1)
+		{
+			*nextx=bposx;
+			*nexty=bposy+1;
+		}
+		if (movetype==2)
+		{
+			*nextx=bposx;
+			*nexty=bposy-1;
+		}
+		if (movetype==3)
+		{
+			*nextx=bposx+1;
+			*nexty=bposy;
+		}
+		if (movetype==4)
+		{
+			*nextx=bposx-1;
+			*nexty=bposy;
+		}
+	}
+	if (bpostype==3)
+	{
+		if (movetype==1)
+		{
+			*nextx=bposx+1;
+			*nexty=bposy;
+		}
+		if (movetype==2)
+		{
+			*nextx=bposx-1;
+			*nexty=bposy;
+		}
+		if (movetype==3)
+		{
+			*nextx=bposx;
+			*nexty=bposy-1;
+		}
+		if (movetype==4)
+		{
+			*nextx=bposx;
+			*nexty=bposy+1;
+		}
+	}
+	if (bpostype==4)
+	{
+		if (movetype==1)
+		{
+			*nextx=bposx-1;
+			*nexty=bposy;
+		}
+		if (movetype==2)
+		{
+			*nextx=bposx+1;
+			*nexty=bposy;
+		}
+		if (movetype==3)
+		{
+			*nextx=bposx;
+			*nexty=bposy+1;
+		}
+		if (movetype==4)
+		{
+			*nextx=bposx;
+			*nexty=bposy-1;
+		}
+	}
+	if ((*nextx>=dm) || (*nexty>=dm))
+		{return 0;}
+	else
+		{return 1;}
+}
+
+
+int check_eog(playerstruct curplayer, int board_dim)
+{
+	/*printf("player-x-y%d-%d", curplayer.posx, curplayer.posy);*/
+	if (curplayer.boardpos==1)
+	{
+		if (curplayer.posy==0)
+		{
+			return 1;
+		}
+		else
+		{
+			return 0;
+		}
+	}
+	if (curplayer.boardpos==2)
+	{
+		if (curplayer.posy==board_dim-1)
+		{
+			return 1;
+		}
+		else
+		{
+			return 0;
+		}
+	}
+	if (curplayer.boardpos==3)
+	{
+		if (curplayer.posx==board_dim-1)
+		{
+			return 1;
+		}
+		else
+		{
+			return 0;
+		}
+	}
+	if (curplayer.boardpos==4)
+	{
+		if (curplayer.posx==0)
+		{
+			return 1;
+		}
+		else
+		{
+			return 0;
+		}
+	}
+}
+
+int getnextplayer(int curplayer, int plnum)
+{
+		if (plnum==2)
+		{
+			if (curplayer==0)
+			{ return 1;}
+			if (curplayer==1)
+			{ return 0;}
+		}
+		else
+		{	
+			if (curplayer==0)
+			{ return 2;}
+			if (curplayer==1)
+			{ return 3;}
+			if (curplayer==2)
+			{ return 1;}
+			if (curplayer==3)
+			{ return 0;}
+		}
+}
+
+int draw_board(int **board, playerstruct pl[4], int dm, char hhead[26])
+{
+	int i,j;
+	printf("\n");
+	printf("    ");
+	for (i=0; i<dm; i++)
+	{
+		printf(" %c ", hhead[i]);
+	}
+	printf("\n");
+	printf("----");
+	for (i=0; i<dm; i++)
+	{
+		printf("---");
+	}
+	printf("\n");
+	for (j=0; j<dm; j++)
+	{
+		if (j<9) {	
+			printf("%d  |", j+1);
+		}
+		else 
+		{
+			printf("%d |", j+1);
+		}
+		for (i=0; i<dm; i++)
+		{
+			if (board[i][j]==0) 
+			{
+				printf(" . ");
+			}
+			else if ((board[i][j]>0) && (board[i][j]<5)) 
+			{
+				printf(" %c ", pl[(board[i][j])-1].symbol);
+			}
+			else if (board[i][j]==9)
+			{
+				printf(" X ");
+			}
+		}
+		printf("\n");
+	}
+	return 0;
+}
+
+char* my_cpstr(char input[6], int from, int to)
+{
+	int i, len;
+	
+	char* retstr;
+	
+	*retstr="";
+	for (i=from; i<to+1; i++)
+	{
+		retstr[i-from]=input[i-1];
+	}
+	return retstr;
+}
+
+int my_str2int(char input[6])
+{
+	int i, len, tmpret;
+	len = strlen(input);
+	/*printf("str2int-%s%d\n", input, len);*/
+	if (len==2)
+	{
+	tmpret=((input[0]-'0')*10)+(input[1]-'0');	
+	}
+	else if (len==1)
+	{
+	tmpret=(input[0]-'0');
+	}
+	return tmpret-1;
+}
+
+
